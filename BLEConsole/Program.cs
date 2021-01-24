@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,6 +14,10 @@ namespace BLEConsole
 {
     class Program
     {
+        
+        //string path = @"c:\GoogleDrive\Work\RileyLink2.0\Docs\testing\read_data.txt";
+        static string path = string.Format("-{0:yyyy-MM-dd_hh-mm-ss-tt}.log", DateTime.Now);
+
         static bool _doWork = true;
         static string CLRF = (Console.IsOutputRedirected) ? "" : "\r\n";
 
@@ -37,17 +42,6 @@ namespace BLEConsole
 
         static string _versionInfo;
 
-        // Variables for "foreach" loop implementation
-        static List<string> _forEachCommands = new List<string>();
-        static List<string> _forEachDeviceNames = new List<string>();
-        static int _forEachCmdCounter = 0;
-        static int _forEachDeviceCounter = 0;
-        static bool _forEachCollection = false;
-        static bool _forEachExecution = false;
-        static string _forEachDeviceMask = "";
-        static int _inIfBlock = 0;
-        static bool _failedConditional = false;
-        static bool _closingIfBlock = false;
         static int _exitCode = 0;
         static ManualResetEvent _notifyCompleteEvent = null;
         static ManualResetEvent _delayEvent = null;
@@ -108,11 +102,6 @@ namespace BLEConsole
                 if (_deviceList.FirstOrDefault(d => d.Id.Equals(devInfo.Id) || d.Name.Equals(devInfo.Name)) == null) _deviceList.Add(devInfo);
             };
             watcher.Updated += (_, __) => {}; // We need handler for this event, even an empty!
-            //Watch for a device being removed by the watcher
-            //watcher.Removed += (DeviceWatcher sender, DeviceInformationUpdate devInfo) =>
-            //{
-            //    _deviceList.Remove(FindKnownDevice(devInfo.Id));
-            //};
             watcher.EnumerationCompleted += (DeviceWatcher sender, object arg) => { sender.Stop(); };
             watcher.Stopped += (DeviceWatcher sender, object arg) => { _deviceList.Clear(); sender.Start(); };
             watcher.Start();
@@ -132,24 +121,7 @@ namespace BLEConsole
                 {
                     var userInput = string.Empty;
 
-                    // If we're inside "foreach" loop, process saved commands
-                    if (_forEachExecution)
-                    {
-                        userInput = _forEachCommands[_forEachCmdCounter];
-                        if (_forEachCmdCounter++ >= _forEachCommands.Count - 1)
-                        {
-                            _forEachCmdCounter = 0;
-                            if (_forEachDeviceCounter++ > _forEachDeviceNames.Count-1)
-                            {
-                                _forEachExecution = false;
-                                _forEachCommands.Clear();
-                                userInput = string.Empty;
-                                skipPrompt = true;
-                            }
-                        }
-                    }
-                    // Otherwise read the stdin
-                    else userInput = Console.ReadLine();
+                    userInput = Console.ReadLine();
 
                     // Check for the end of input
                     if (Console.IsInputRedirected && string.IsNullOrEmpty(userInput))
@@ -163,24 +135,7 @@ namespace BLEConsole
                         string[] strs = userInput.Split(' ');
                         cmd = strs.First().ToLower();
                         string parameters = string.Join(" ", strs.Skip(1));
-
-                        if (_forEachCollection && !cmd.Equals("endfor"))
-                        {
-                            _forEachCommands.Add(userInput);
-                        }
-                        if (cmd == "endif" || cmd == "elif" || cmd == "else")
-                            _closingIfBlock = false;
-                        else
-                        {
-                            if ((_inIfBlock > 0 && !_closingIfBlock) || _inIfBlock == 0)
-                            {
-                                await HandleSwitch(cmd, parameters);
-                            }
-                            else
-                            {
-                                continue;
-                            }
-                        }
+                        await HandleSwitch(cmd, parameters);
                     }
                 }
                 catch (Exception error)
@@ -200,70 +155,6 @@ namespace BLEConsole
         {
             switch (cmd)
             {
-                case "if":
-                    _inIfBlock++;
-                    _exitCode = 0;
-                    if(parameters != "")
-                    {
-                        string[] str = parameters.Split(' ');
-                        await HandleSwitch(str[0], str.Skip(1).Aggregate((i, j) => i + " " + j));
-                        _closingIfBlock = ( _exitCode > 0 );
-                        _failedConditional = _closingIfBlock;
-                    }
-                    break;
-
-                case "elif":
-                    if (_failedConditional)
-                    {
-                        _exitCode = 0;
-                        if (parameters != "")
-                        {
-                            string[] str = parameters.Split(' ');
-                            await HandleSwitch(str[0], str.Skip(1).Aggregate((i, j) => i + " " + j));
-                            _closingIfBlock = (_exitCode > 0);
-                            _failedConditional = _closingIfBlock;
-                        }
-                    }
-                    else
-                        _closingIfBlock = true;
-                    break;
-
-                case "else":
-                    if (_failedConditional)
-                    {
-                        _exitCode = 0;
-                        if (parameters != "")
-                        {
-                            string[] str = parameters.Split(' ');
-                            await HandleSwitch(str[0], str.Skip(1).Aggregate((i, j) => i + " " + j));
-                        }
-                    }
-                    else
-                        _closingIfBlock = true;
-                    break;
-
-                case "endif":
-                    if(_inIfBlock > 0)
-                        _inIfBlock--;
-                    _failedConditional = false;
-                    break;
-
-                case "foreach":
-                    _forEachCollection = true;
-                    _forEachDeviceMask = parameters.ToLower();
-                    break;
-
-                case "endfor":
-                    if (string.IsNullOrEmpty(_forEachDeviceMask))
-                        _forEachDeviceNames = _deviceList.OrderBy(d => d.Name).Where(d => !string.IsNullOrEmpty(d.Name)).Select(d => d.Name).ToList();
-                    else
-                    _forEachDeviceNames = _deviceList.OrderBy(d => d.Name).Where(d => d.Name.ToLower().StartsWith(_forEachDeviceMask)).Select(d => d.Name).ToList();
-                    _forEachDeviceCounter = 0;
-                    _forEachCmdCounter = 0;
-                    _forEachCollection = false;
-                    _forEachExecution = (_forEachCommands.Count > 0);
-                    break;
-
                 case "exit":
                 case "q":
                 case "quit":
@@ -288,9 +179,6 @@ namespace BLEConsole
 
                 case "p":
                 case "print":
-                    if (_forEachExecution && _forEachDeviceCounter > 0)
-                        parameters = parameters.Replace("$", _forEachDeviceNames[_forEachDeviceCounter - 1]);
-
                     _exitCode += PrintInformation(parameters);
                     break;
 
@@ -299,11 +187,9 @@ namespace BLEConsole
                     ListDevices(parameters);
                     break;
 
-                case "open":
-                    if (_forEachExecution && _forEachDeviceCounter > 0)
-                        parameters = parameters.Replace("$", _forEachDeviceNames[_forEachDeviceCounter - 1]);
-                    
+                case "open":             
                     _exitCode += await OpenDevice(parameters);
+                    if (_exitCode == 0) path = path.Insert(0, parameters);
                     break;
 
                 case "timeout":
@@ -342,7 +228,26 @@ namespace BLEConsole
                 case "write":
                     _exitCode += await WriteCharacteristic(parameters);
                     break;
-
+                
+                    //write-read-retry and repeat; 
+                        //first parameter is the number repeats with 0 = infinite until read returns "AA"
+                        //second parameter is the number of retries for read until it gets a result with lenght > 2
+                        //third if the BLE service and characteristic like #2/#1
+                        //last is the hex string to write
+                case "wrrr":
+                    int return_code;
+                    string[] strs = parameters.Split(' ');
+                    int repeats = Convert.ToInt32(strs[0]);
+                    int retries = Convert.ToInt32(strs[1]);
+                    string service = strs[2];
+                    string write_string = string.Join(" ", strs.Skip(2));
+                    do
+                    {
+                        await WriteCharacteristic(write_string);
+                        return_code = await ReadCharacteristic2(retries, service);
+                    } while ((return_code == 0) && (--repeats > 0));
+                    break;
+                                       
                 case "subs":
                 case "sub":
                     _exitCode += await SubscribeToCharacteristic(parameters);
@@ -389,18 +294,12 @@ namespace BLEConsole
                 "  set <service_name> or <#>\t: set current service (for read/write operations)\n" +
                 "  read, r <name>**\t\t: read value from specific characteristic\n" +
                 "  write, w <name>**<value>\t: write value to specific characteristic\n" +
+                "  **wrrr** <repeats> <retries> <name>** <value>\t: write value to specific characteristic and retry reading for retries times or until the read is not empty. The entire cycle is repeated for repeats times\n" +
                 "  subs <name>**\t\t\t: subscribe to value change for specific characteristic\n" +
                 "  unsubs <name>** [all]\t\t: unsubscribe from value change for specific characteristic or unsubs all for all\n" +
                 "  wait\t\t\t\t: wait for notification event on value change (you must be subscribed, see above)\n" +
-                "  foreach [device_mask]\t\t: starts devices enumerating loop\n" +
-                "  endfor\t\t\t: end foreach loop\n"+
-                "  if <cmd> <params>\t\t: start conditional block dependent on function returning w\\o error\n" +
-                "    elif\t\t\t: another conditionals block\n" +
-                "    else\t\t\t: if condition == false block\n" +
-                "  endif\t\t\t\t: end conditional block\n\n" +
                 "   * You can also use standard C language string formating characters like \\t, \\n etc. \n" +
-                "  ** <name> could be \"service/characteristic\", or just a char name or # (for selected service)\n\n" +
-                "  For additional information and examples please visit https://github.com/shelltechworks/BLEConsole \n"
+                "  ** <name> could be \"service/characteristic\", or just a char name or # (for selected service)\n\n"
                 );
         }
 
@@ -882,6 +781,134 @@ namespace BLEConsole
                                 Console.WriteLine($"Read failed: {result.Status}");
                                 retVal += 1;
                             }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Invalid characteristic {charName}");
+                            retVal += 1;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Nothing to read, please specify characteristic name or #.");
+                        retVal += 1;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Nothing to read, please specify characteristic name or #.");
+                    retVal += 1;
+                }
+            }
+            else
+            {
+                Console.WriteLine("No BLE device connected.");
+                retVal += 1;
+            }
+            return retVal;
+        }
+
+        /// <summary>
+        /// This function reads data from the specific BLE characteristic 
+        /// </summary>
+        /// <param name="param"></param>
+        static async Task<int> ReadCharacteristic2(int retries, string param)
+        {
+            int retVal = 0;
+            if (_selectedDevice != null)
+            {
+                if (!string.IsNullOrEmpty(param))
+                {
+                    List<BluetoothLEAttributeDisplay> chars = new List<BluetoothLEAttributeDisplay>();
+
+                    string charName = string.Empty;
+                    var parts = param.Split('/');
+                    // Do we have parameter is in "service/characteristic" format?
+                    if (parts.Length == 2)
+                    {
+                        string serviceName = Utilities.GetIdByNameOrNumber(_services, parts[0]);
+                        charName = parts[1];
+
+                        // If device is found, connect to device and enumerate all services
+                        if (!string.IsNullOrEmpty(serviceName))
+                        {
+                            var attr = _services.FirstOrDefault(s => s.Name.Equals(serviceName));
+                            IReadOnlyList<GattCharacteristic> characteristics = new List<GattCharacteristic>();
+
+                            try
+                            {
+                                // Ensure we have access to the device.
+                                var accessStatus = await attr.service.RequestAccessAsync();
+                                if (accessStatus == DeviceAccessStatus.Allowed)
+                                {
+                                    var result = await attr.service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+                                    if (result.Status == GattCommunicationStatus.Success)
+                                        characteristics = result.Characteristics;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Restricted service. Can't read characteristics: {ex.Message}");
+                                retVal += 1;
+                            }
+
+                            foreach (var c in characteristics)
+                                chars.Add(new BluetoothLEAttributeDisplay(c));
+                        }
+                    }
+                    else if (parts.Length == 1)
+                    {
+                        if (_selectedService == null)
+                        {
+                            if (!Console.IsOutputRedirected)
+                                Console.WriteLine("No service is selected.");
+                        }
+                        chars = new List<BluetoothLEAttributeDisplay>(_characteristics);
+                        charName = parts[0];
+                    }
+
+                    // Read characteristic
+                    if (chars.Count > 0 && !string.IsNullOrEmpty(charName))
+                    {
+                        string useName = Utilities.GetIdByNameOrNumber(chars, charName);
+                        var attr = chars.FirstOrDefault(c => c.Name.Equals(useName));
+                        if (attr != null && attr.characteristic != null)
+                        {
+                            // Read characteristic value
+                            GattReadResult result = await attr.characteristic.ReadValueAsync(BluetoothCacheMode.Uncached);
+                            for (int i = 0; i < retries; i++)
+                            {
+                                Console.WriteLine($"Read try {i}");
+                                if (result.Status == GattCommunicationStatus.Success && (Utilities.FormatValue(result.Value, _dataFormat) != string.Empty)) break;
+                                Thread.Sleep(200);
+                                result = await attr.characteristic.ReadValueAsync(BluetoothCacheMode.Uncached);
+                            }
+
+                            if (result.Status == GattCommunicationStatus.Success)
+                            {
+                                Console.WriteLine(Utilities.FormatValue(result.Value, _dataFormat));
+                                if (Utilities.FormatValue(result.Value, _dataFormat).Length > 2)
+                                {
+                                    if (!File.Exists(path))
+                                    {
+                                        using (StreamWriter sw = File.CreateText(path))
+                                        {
+                                            sw.WriteLine(Utilities.FormatValue(result.Value, _dataFormat));
+                                        }
+                                    }
+
+                                    else
+                                    {
+                                        using (StreamWriter sw = File.AppendText(path))
+                                        {
+                                            sw.WriteLine(Utilities.FormatValue(result.Value, _dataFormat));
+                                        }
+
+                                    }
+                                }
+                                else retVal = 250;  //timeout
+                            }
+                            
                         }
                         else
                         {

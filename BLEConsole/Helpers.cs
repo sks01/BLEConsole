@@ -399,28 +399,32 @@ namespace BLEConsole
             byte[] data;
             CryptographicBuffer.CopyToByteArray(buffer, out data);
 
-            switch (format)
+            if (data != null)
             {
-                case DataFormat.ASCII:
-                    return Encoding.ASCII.GetString(data);
+                switch (format)
+                {
+                    case DataFormat.ASCII:
+                        return Encoding.ASCII.GetString(data);
 
-                case DataFormat.UTF8:
-                    return Encoding.UTF8.GetString(data);
+                    case DataFormat.UTF8:
+                        return Encoding.UTF8.GetString(data);
 
-                case DataFormat.Dec:
-                    return string.Join(" ", data.Select(b => b.ToString("00")));
+                    case DataFormat.Dec:
+                        return string.Join(" ", data.Select(b => b.ToString("00")));
 
-                case DataFormat.Hex:
-                    return BitConverter.ToString(data).Replace("-", " ");
+                    case DataFormat.Hex:
+                        return BitConverter.ToString(data).Replace("-", " ");
 
-                case DataFormat.Bin:
-                    var s = string.Empty;
-                    foreach (var b in data) s += Convert.ToString(b, 2).PadLeft(8, '0') + " ";
-                    return s;
+                    case DataFormat.Bin:
+                        var s = string.Empty;
+                        foreach (var b in data) s += Convert.ToString(b, 2).PadLeft(8, '0') + " ";
+                        return s;
 
-                default:
-                    return Encoding.ASCII.GetString(data);
+                    default:
+                        return Encoding.ASCII.GetString(data);
+                }
             }
+            else return (string.Empty);
         }
 
         /// <summary>
