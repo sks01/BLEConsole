@@ -28,7 +28,7 @@ Windows 10, BT 4.0 adapter
 - **format** [data_format], **fmt**    : show/change display format, can be ASCII/UTF8/Dec/Hex/Bin
 - **set** <service_name> or <#>    : set current service (for read/write operations)
 - **read**, **r** <name>**              : read value from specific characteristic
-- **wrrr** <repeats> <retries> <name>** <value> : write <value> to a <name> characteristic <repeats> times, each time reading the same characteristic for a non-empty value a number of <retries> times
+- **wrrr** <repeats> <retries> <name>** <value> : write value to a characteristic repeats times, each time reading the same characteristic for a non-empty value a number of retries times
 - **write**, **w** <name>** <value>     : write value to specific characteristic
 - **subs** <name>**                 : subscribe to value change for specific characteristic
 - **unsubs** <name>** [all]         : unsubscribe from value change for specific characteristic or unsubs all for all
