@@ -42,19 +42,19 @@ Windows 10, BT 4.0 adapter
 
 BLEConsole ver. 0.4.0
 
-BLE: list
-#01: Simple BLE Peripheral
-#02: TESTER
-BLE: open tester
-Connecting to TESTER.
-Found 3 services:
-#00: GenericAccess
-#01: Battery
-#02: Custom Service: 0235733b-99c5-4197-b856-69219c2a3845
-BLE: format hex
-Current display format: Hex
-BLE: wrrr 10000 1000 #2/#0 06 03 00 00 00 ff ff
-Read try 0
-BB
-BLE:
+*  BLE: list
+*  #01: Simple BLE Peripheral
+*  #02: TESTER
+*  BLE: open tester
+*  Connecting to TESTER.
+*  Found 3 services:
+*  #00: GenericAccess
+*  #01: Battery
+*  #02: Custom Service: 0235733b-99c5-4197-b856-69219c2a3845
+*  BLE: format hex
+*  Current display format: Hex
+*  BLE: wrrr 10000 1000 #2/#0 06 03 00 00 00 ff ff
+*  Read try 0
+*  BB
+*  BLE:
 
